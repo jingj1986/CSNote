@@ -1,5 +1,5 @@
 # CSNote
-Mysql、Redis、Nginx等工具知识点的总结笔记
+MySQL、Redis、Nginx等工具知识点的总结笔记
 
 ## 缘起
 
