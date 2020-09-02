@@ -8,5 +8,6 @@
 
 ## 章节
 
-- [事务、锁](ACID_LOCK.md)
+- [事务](ACID.md)
+- [锁](LOCK.md)
 
