@@ -78,22 +78,22 @@ auto_ptr<string> strs[4] =
 
 在早起C++经典书籍中对智能指针的使用与讨论主要使用 `auto_ptr`，这里我们换用 `unique_ptr` 或 `shared_ptr` 
 
-.1  类设计 
+####  1. 类设计 
 
 ```
 
 ```
 
-.2 智能指针包含在多语句内
+#### 2. 智能指针包含在多语句内
 
 ```
 ```
 
-.3 容器内使用
+#### 3. 容器内使用
 ```
 ```
 
-.4 简单工厂模式
+#### 4. 简单工厂模式
 
 R4-18
 ```
@@ -122,6 +122,108 @@ auto makeFact(Ts&&... params) {
     return pFact;
 }
 ```
+
+#### 5. 不同
+
+unique_ptr 与 shared_ptr 定义不同
+```
+template <class T, class D = default_delete<T>> class unique_ptr;
+template <class T> class shared_ptr;
+```
+
+这样shared_ptr具有更大灵活性,
+
+```
+shared_ptr<A> pw1(new A, del1);
+shared_ptr<A> pw2(new A, del2);  //使用不同的析构器
+
+vector<shared_ptr<A>> vpw{pw1, pw2};
+```
+这样定义的不同，在Pimpl习惯用法上就有明显的差异。
+
+**Pimpl习惯用法**
+
+使用Pimpl习惯用法时，如果pImpl为unique_ptr形式，那么就需要在Impl的定义之后明确析构。内容来自 R4-22.
+
+```
+// A.h
+class A {
+ public:
+    A();
+ private:
+    struct X;	
+    std::unique_ptr<X> x;   // unique_ptr方式的pImpl
+};
+
+// A.cpp
+#include "A.h"
+struct A::X {
+  int i;
+  std::string s;
+  std::vector<double> v;
+};
+
+A::A() : x(std::make_unique<X>()) {}
+
+// main.cpp
+#include "A.h"
+int main()
+{
+  A a; // 错误：A::X 是不完整类型
+}
+```
+
+原因是在`A a;` 语句处，编译器会在此处创建隐式的析构函数(inline)的，析构函数执行unique_ptr的析构器，采用的是default_delete，在 delete 语句之前会用 static_assert 断言指针指向的不是非完整类型；而此时没有看到A::X的定义，所以其为非完整类型，断言失败，出现错误。
+
+```
+// 删除器的实现
+template<class T>
+struct default_delete // default deleter for unique_ptr
+{
+  constexpr default_delete() noexcept = default;
+  
+  template<class U, enable_if_t<is_convertible_v<U*, T*>, int> = 0>
+  default_delete(const default_delete<U>&) noexcept
+  { // construct from another default_delete
+  }
+
+  void operator()(T* p) const noexcept
+  {
+    static_assert(0 < sizeof(T), "can't delete an incomplete type");	// 断言
+    delete p;
+  }
+};
+```
+
+解决方法就是让析构 std::unique_ptr 的代码看见完整类型，即让析构函数的定义位于要析构的类型的定义之后
+
+```
+// A.h
+class A {
+ public:
+ 	A();
+ 	~A();
+ private:
+ 	struct X;
+ 	std::unique_ptr<X> x;
+};
+
+// A.cpp
+#include "A.h"
+struct A::X {
+  int i;
+  std::string s;
+  std::vector<double> v;
+};
+
+A::A() : x(std::make_unique<X>()) {}
+A::~A() = default; // 必须位于 A::X 的定义之后
+```
+有了析构函数后，若要支持移动构造也许显示声明；在移动构造时会有原对象的析构，所以也需要将A::X的定义之后，显式定义移动构造函数、移动赋值函数。
+
+而在Pimpl中使用 shared_ptr 则不会有该问题，这就是`unique_ptr` 与 `shared_ptr`定义的不同。但是Pimpl中一般是用到 unique_ptr的类型。
+更多详细的描述与讨论见 R4-22章节。
+
 
 ## 参考
 1. [C++智能指针简单剖析](https://www.cnblogs.com/lanxuezaipiao/p/4132096.html)

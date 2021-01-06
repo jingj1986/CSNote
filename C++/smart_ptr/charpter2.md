@@ -210,23 +210,18 @@ template <class T, class D> bool operator>= (const unique_ptr<T,D>& lhs, nullptr
 template <class T, class D> bool operator>= (nullptr_t, const unique_ptr<T,D>& rhs) noexcept;
 
 ```
+
 设置析构器的影响，若析构器是函数指针，尺寸一般会增加一到两个字长；若是函数对象，则尺寸变化取决于函数对象中农存储了多少状态。无状态的函数对象（如lambda表达式）不会增加尺寸。-R4-18 <br>
 我们可以看到设计1与设计2存在一定的差别，在Rxx和R5-x有关于类设计的讨论。要知道一旦向外提供了api，就要保持其稳定，所以在设计上需要多花些时间。
 
-unique_ptr 支持通过 auto_ptr的构造函数，本接口提供。
+unique_ptr 支持通过 auto_ptr的构造函数，本接口未提供。
 
 . 实现
+
 基于上面的设计，几乎就会STL中的unique_ptr的版本，这里提供GCC与MicroSoft的unique_ptr的源文件，感兴趣可以查看
 
 c++_unique_ptr.h : 来自 /usr/include/c++/9/bits/unique_ptr.h
 Ms-memory.h: [MicroSoft-STL](https://github.com/github-sr/STL)
 
 ## 参考
-1. [C++智能指针简单剖析](https://www.cnblogs.com/lanxuezaipiao/p/4132096.html)
-2. R2: effective C++
-3. R3: more effective C++ 
-4. R4: modern effective C++
-5. R5: Exceptional C++
-6. R6: More Exceptional C++
-
-
+1. R4: modern effective C++
