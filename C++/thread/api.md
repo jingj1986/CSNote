@@ -17,6 +17,12 @@
 | thread::swap |  |
 | std::swap | |
 
+```
+yield       通常用在自己的主要任务已经完成的时候，此时希望让出处理器给其他任务使用。
+sleep_for   是让当前线程停止一段时间
+sleep_until 是以具体的时间点为参数
+```
+
 #### 1.2 构造函数与赋值
 
 ```
@@ -44,6 +50,9 @@ pthread_create
 | locks | lock_guard  unique_lock | class template |
 | other types | once_flag  adopt_lock_t   defer_lock_t   try_to_lock_t | class |
 | functions | try_lock  lock  call_once |  function template |
+
+. 后增加了 `hared_mutex` 和 `shared_timed_mutex`
+. 后增加了 `shared_lock` 和 `scoped_lock`
 
 #### 2.2 mutexes 几个不同类包含的成员函数
 
@@ -75,6 +84,7 @@ template <class Mutex> class lock_guard;
 // 在lock_guard基础上添加更多成员函数，更加灵活 
 template <class Mutex> class unique_lock;
 ```
+
  可理解为智能指针，可以自动释放；这儿是自动解锁
 
 ##### 2.4.1 unique_lock 函数
@@ -116,6 +126,8 @@ copy [deleted] (2)   unique_lock& operator= (const unique_lock&) = delete;
 
 #### 2.6 mutex中的函数模板
 
+允许传入多个lock对象，在一定程度上避免死锁。
+
 ```
 template <class Mutex1, class Mutex2, class... Mutexes>
       int try_lock (Mutex1& a, Mutex2& b, Mutexes&... cde);
@@ -126,6 +138,20 @@ template <class Mutex1, class Mutex2, class... Mutexes>
 template <class Fn, class... Args>
           void call_once (once_flag& flag, Fn&& fn, Args&&... args);
 ```
+
+使用
+```
+lock (lck1, lck2);
+lock_guard(lck1, adopt_lock);
+lock_guard(lck2, adopt_lock); // 使用adopt_lock避免二次加锁
+
+// 与上面等价
+unique_lock(lck1, defer_lock);
+unique_lock(lck1, defer_lock);
+lock(lck1, lck2);
+
+// 后增加了 lockAll 函数
+ ```
 
 
 ### 3 condition_variable
@@ -244,8 +270,6 @@ if T is pointer (2)     T fetch_add (ptrdiff_t val, memory_order sync = memory_o
 4.2小节中`fetch_add`函数声明有 `memory_order`的参数的设置，其实在`atomic` 和 `atomic_flag`的主要成员函数中都可以设置这个参数。<br>
 为了提高执行速度，现在编译器与cpu做了一些乱序的优化，导致一些执行语句的执行顺序与期望的有多出入，这个时候就需要设置内存执行顺序。
 
-内容来自 [百度brpc的atomic_instructions.md](https://github.com/apache/incubator-brpc/blob/master/docs/cn/atomic_instructions.md).
-
 | memory order | 作用 |
 | --- | --- |
 | memory_order_relaxed | 没有fencing作用 |
@@ -254,6 +278,8 @@ if T is pointer (2)     T fetch_add (ptrdiff_t val, memory_order sync = memory_o
 | memory_order_release | 前面访存指令勿重排至此条指令之后。当此条指令的结果对其他线程可见后，之前的所有指令都可见 |
 | memory_order_acq_rel | acquire + release语意 |
 | memory_order_seq_cst | acq_rel语意外加所有使用seq_cst的指令有严格地全序关系 |
+
+[C++ 内存模型](https://paul.pub/cpp-memory-model/) 对此总结的比较全面，应该多看看。
 
 #### 4.4 宏常量
 
@@ -338,6 +364,9 @@ int main ()
 | 交换 | swap(成员/非成员) | swap(成员/非成员) | - |
 | 其他 |  | valid <br> reset | | 
 
+. `promise`存储一个值以进行异步获取；`packaged_task`打包一个函数，存储其返回值以进行异步获取。<br>
+. `packaged_task`绑定到一个函数或者可调用对象上, 对象是一个可调用对象，它可以被封装成一个std::fucntion，或者作为线程函数传递给std::thread，或者直接调用。
+
 **其他**
 
 . async在定义时可自动选择启动策略，也可以自定选择，启动策略包括`launch::async` `launch::deferred`中的一个或两者的并。
@@ -359,5 +388,18 @@ int main ()
 | future_errc | broken_promise<br>future_already_retrieved<br>promise_already_satisfied<br>no_state |
 | future_status | ready<br>timeout<br>deferred |
 | launch | async<br>deferred |
+
+### 6. 总结
+
+#### 6.1 其中的一些共同点
+
+A  xxx_for 都是设置一个时间长度， xxx_until 都是一个具体的时间点, 包括：
+
+. `wait_for` 与 `wait_until`
+. `try_lock_for` 与 `try_lock_until`
+. `sleep_for` 与 `sleep_until`
+
+
+B `mutex` 与 `atomic` 有两种函数，c-type的函数和类的成员函数，这种函数的有比较接近的名称和功能，可以更加灵活使用。
 
 
